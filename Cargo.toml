@@ -1,6 +1,6 @@
 [package]
 name = "derive_deref"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Sean Griffin <sean@seantheprogrammer.com>"]
 license = "MIT OR Apache-2.0"
 description = "Adds `#[derive(Deref)]` and `#[derive(DerefMut)]`"
@@ -9,8 +9,8 @@ keywords = ["derive", "deref"]
 repository = "https://github.com/sgrif/derive_deref"
 
 [dependencies]
-syn = { version = "0.11.11", features = ["aster"] }
-quote = "0.3.12"
+syn = "0.13"
+quote = "0.5"
 
 [lib]
 proc-macro = true
