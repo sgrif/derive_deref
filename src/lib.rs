@@ -4,11 +4,10 @@ extern crate quote;
 extern crate syn;
 
 use proc_macro::TokenStream;
-use syn::parse_derive_input;
 
 #[proc_macro_derive(Deref)]
 pub fn derive_deref(input: TokenStream) -> TokenStream {
-    let item = parse_derive_input(&input.to_string()).unwrap();
+    let item = syn::parse(input).unwrap();
     let (field_ty, field_access) = parse_fields(&item, false);
 
     let name = &item.ident;
@@ -24,13 +23,12 @@ pub fn derive_deref(input: TokenStream) -> TokenStream {
                 #field_access
             }
         }
-    ).parse()
-        .unwrap()
+    ).into()
 }
 
 #[proc_macro_derive(DerefMut)]
 pub fn derive_deref_mut(input: TokenStream) -> TokenStream {
-    let item = parse_derive_input(&input.to_string()).unwrap();
+    let item = syn::parse(input).unwrap();
     let (_, field_access) = parse_fields(&item, true);
 
     let name = &item.ident;
@@ -44,18 +42,17 @@ pub fn derive_deref_mut(input: TokenStream) -> TokenStream {
                 #field_access
             }
         }
-    ).parse()
-        .unwrap()
+    ).into()
 }
 
-fn parse_fields(item: &syn::DeriveInput, mutable: bool) -> (syn::Ty, quote::Tokens) {
+fn parse_fields(item: &syn::DeriveInput, mutable: bool) -> (syn::Type, quote::Tokens) {
     let trait_name = if mutable {
         "DerefMut"
     } else {
         "Deref"
     };
-    let fields = match item.body {
-        syn::Body::Struct(ref body) => body.fields(),
+    let fields = match item.data {
+        syn::Data::Struct(ref body) => body.fields.iter().collect::<Vec<&syn::Field>>(),
         _ => panic!("#[derive({})] can only be used on structs", trait_name),
     };
 
@@ -64,14 +61,13 @@ fn parse_fields(item: &syn::DeriveInput, mutable: bool) -> (syn::Ty, quote::Toke
     } else {
         panic!("#[derive({})] can only be used on structs with one field", trait_name)
     };
-    let field_name = fields[0]
-        .ident
-        .as_ref()
-        .cloned()
-        .unwrap_or_else(|| syn::Ident::new("0"));
+    let field_name = match fields[0].ident {
+        Some(ident) => quote!(#ident),
+        None => quote!(0)
+    };
 
     match (field_ty, mutable) {
-        (syn::Ty::Rptr(_, inner), _) => (inner.ty, quote!(self.#field_name)),
+        (syn::Type::Reference(syn::TypeReference { elem, .. }), _) => (*elem.clone(), quote!(self.#field_name)),
         (x, true) => (x, quote!(&mut self.#field_name)),
         (x, false) => (x, quote!(&self.#field_name)),
     }
