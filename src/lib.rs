@@ -1,4 +1,5 @@
 extern crate proc_macro;
+extern crate proc_macro2;
 #[macro_use]
 extern crate quote;
 extern crate syn;
@@ -45,12 +46,8 @@ pub fn derive_deref_mut(input: TokenStream) -> TokenStream {
     ).into()
 }
 
-fn parse_fields(item: &syn::DeriveInput, mutable: bool) -> (syn::Type, quote::Tokens) {
-    let trait_name = if mutable {
-        "DerefMut"
-    } else {
-        "Deref"
-    };
+fn parse_fields(item: &syn::DeriveInput, mutable: bool) -> (syn::Type, proc_macro2::TokenStream) {
+    let trait_name = if mutable { "DerefMut" } else { "Deref" };
     let fields = match item.data {
         syn::Data::Struct(ref body) => body.fields.iter().collect::<Vec<&syn::Field>>(),
         _ => panic!("#[derive({})] can only be used on structs", trait_name),
@@ -62,8 +59,8 @@ fn parse_fields(item: &syn::DeriveInput, mutable: bool) -> (syn::Type, quote::To
         panic!("#[derive({})] can only be used on structs with one field", trait_name)
     };
     let field_name = match fields[0].ident {
-        Some(ident) => quote!(#ident),
-        None => quote!(0)
+        Some(ref ident) => quote!(#ident),
+        None => quote!(0),
     };
 
     match (field_ty, mutable) {
