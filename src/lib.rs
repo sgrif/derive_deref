@@ -75,7 +75,13 @@ fn parse_fields(item: &syn::DeriveInput, mutable: bool) -> (syn::Type, proc_macr
         _ => None,
     };
     let field_ty = field_ty
-        .unwrap_or_else(|| panic!("#[derive({})] can only be used on structs with one field", trait_name));
+        .unwrap_or_else(|| {
+            panic!(
+                "#[derive({})] can only be used on structs with one field, \
+                 and optionally a second `PhantomData` field.",
+                 trait_name,
+            )
+        });
 
     let field_name = match fields[0].ident {
         Some(ref ident) => quote!(#ident),
