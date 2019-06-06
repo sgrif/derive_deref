@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate derive_deref;
 
+use std::marker::PhantomData;
+
 #[test]
 fn derive_deref_tuple_struct() {
     #[derive(Deref)]
@@ -17,6 +19,17 @@ fn derive_deref_tuple_struct() {
 }
 
 #[test]
+fn derive_deref_tuple_struct_with_phantom_data() {
+    trait FooTrait<T> {}
+    impl FooTrait<()> for String {}
+
+    #[derive(Deref)]
+    struct FooWrapper<F, T>(F, PhantomData<T>) where F: FooTrait<T>;
+
+    assert_eq!("foo", &*FooWrapper(String::from("foo"), PhantomData));
+}
+
+#[test]
 fn derive_deref_named_struct() {
     #[derive(Deref)]
     struct StringWrapper { s: String };
@@ -29,6 +42,17 @@ fn derive_deref_named_struct() {
     assert_eq!(1, *IntWrapper { i: 1 });
     assert_eq!(&2, &*IntWrapper { i: 2 });
     assert_eq!(2, *IntWrapper { i: 2 });
+}
+
+#[test]
+fn derive_deref_named_struct_with_phantom_data() {
+    trait FooTrait<T> {}
+    impl FooTrait<()> for String {}
+
+    #[derive(Deref)]
+    struct FooNamedWrapper<F, T> where F: FooTrait<T> { f: F, phantom: PhantomData<T> };
+
+    assert_eq!("foo", &*FooNamedWrapper { f: String::from("foo"), phantom: PhantomData });
 }
 
 #[test]

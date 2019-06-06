@@ -5,6 +5,7 @@ extern crate quote;
 extern crate syn;
 
 use proc_macro::TokenStream;
+use syn::{Path, Type, TypePath};
 
 #[proc_macro_derive(Deref)]
 pub fn derive_deref(input: TokenStream) -> TokenStream {
@@ -53,11 +54,35 @@ fn parse_fields(item: &syn::DeriveInput, mutable: bool) -> (syn::Type, proc_macr
         _ => panic!("#[derive({})] can only be used on structs", trait_name),
     };
 
-    let field_ty = if fields.len() == 1 {
-        fields[0].ty.clone()
-    } else {
-        panic!("#[derive({})] can only be used on structs with one field", trait_name)
+    let field_ty = match fields.len() {
+        1 => Some(fields[0].ty.clone()),
+        2 => {
+            if let Type::Path(TypePath { path: Path { segments, .. }, .. }) = &fields[1].ty {
+                if segments
+                    .last()
+                    .expect("Expected path to have at least one segment")
+                    .value()
+                    .ident == "PhantomData"
+                {
+                    Some(fields[0].ty.clone())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        },
+        _ => None,
     };
+    let field_ty = field_ty
+        .unwrap_or_else(|| {
+            panic!(
+                "#[derive({})] can only be used on structs with one field, \
+                 and optionally a second `PhantomData` field.",
+                 trait_name,
+            )
+        });
+
     let field_name = match fields[0].ident {
         Some(ref ident) => quote!(#ident),
         None => quote!(0),
