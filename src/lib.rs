@@ -61,7 +61,6 @@ fn parse_fields(item: &syn::DeriveInput, mutable: bool) -> (syn::Type, proc_macr
                 if segments
                     .last()
                     .expect("Expected path to have at least one segment")
-                    .value()
                     .ident == "PhantomData"
                 {
                     Some(fields[0].ty.clone())
