@@ -4,6 +4,29 @@ extern crate derive_deref;
 use std::marker::PhantomData;
 
 #[test]
+fn derive_deref_more_fields() {
+    #[derive(Deref)]
+    struct StringWrapper {
+        additional_data: i32,
+        more_data: i32,
+        #[deref_target]
+        inner: String,
+    };
+    assert_eq!("foo", &*StringWrapper {additional_data: 0, more_data: 0, inner: "foo".into()});
+}
+#[test]
+fn derive_deref_mut_more_fields() {
+    #[derive(Deref, DerefMut)]
+    struct StringWrapper {
+        additional_data: i32,
+        more_data: i32,
+        #[deref_target]
+        inner: String,
+    };
+    assert_eq!("foo", &*StringWrapper {additional_data: 0, more_data: 0, inner: "foo".into()});
+}
+
+#[test]
 fn derive_deref_tuple_struct() {
     #[derive(Deref)]
     struct StringWrapper(String);
