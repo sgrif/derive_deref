@@ -14,6 +14,7 @@ fn derive_deref_more_fields() {
     };
     assert_eq!("foo", &*StringWrapper {additional_data: 0, more_data: 0, inner: "foo".into()});
 }
+
 #[test]
 fn derive_deref_mut_more_fields() {
     #[derive(Deref, DerefMut)]

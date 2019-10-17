@@ -54,15 +54,8 @@ fn parse_fields(item: &syn::DeriveInput, mutable: bool) -> (syn::Type, proc_macr
             body.fields.iter()
                 .filter(|field| {
                     if let Type::Path(TypePath { path: Path { segments, .. }, .. }) = &field.ty {
-                        if segments
-                            .last()
-                            .expect("Expected path to have at least one segment")
-                            .ident == "PhantomData"
-                        {
-                            false
-                        } else {
-                            true
-                        }
+                        let ident = &segments.last().expect("Expected path to have at least one segment").ident;
+                        ident != "PhantomData"
                     } else {
                         true
                     }
@@ -81,12 +74,7 @@ fn parse_fields(item: &syn::DeriveInput, mutable: bool) -> (syn::Type, proc_macr
                     targets.push(field);
                 }
             }
-            match targets.len() {
-                0 => panic!("#[derive({})]: since there is more than one field, #[deref_target] is needed on a field", trait_name),
-                1 => targets[0],
-                _ => panic!("#[derive({})]: only one #[deref_target] allowed", trait_name),
-            }
-
+            *targets.get(0).expect("#[deref_target] expected on one of the fields")
         }
     };
 
