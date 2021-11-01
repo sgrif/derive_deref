@@ -25,7 +25,8 @@ pub fn derive_deref(input: TokenStream) -> TokenStream {
                 #field_access
             }
         }
-    ).into()
+    )
+    .into()
 }
 
 #[proc_macro_derive(DerefMut, attributes(deref_target))]
@@ -44,49 +45,70 @@ pub fn derive_deref_mut(input: TokenStream) -> TokenStream {
                 #field_access
             }
         }
-    ).into()
+    )
+    .into()
 }
 
-fn parse_fields(item: &syn::DeriveInput, mutable: bool) -> (syn::Type, proc_macro2::TokenStream) {
+fn parse_fields(item: &syn::DeriveInput, mutable: bool) -> (&syn::Type, proc_macro2::TokenStream) {
     let trait_name = if mutable { "DerefMut" } else { "Deref" };
-    let fields = match item.data {
-        syn::Data::Struct(ref body) =>
-            body.fields.iter()
-                .filter(|field| {
-                    if let Type::Path(TypePath { path: Path { segments, .. }, .. }) = &field.ty {
-                        let ident = &segments.last().expect("Expected path to have at least one segment").ident;
-                        ident != "PhantomData"
-                    } else {
-                        true
-                    }
-                })
-                .collect::<Vec<&syn::Field>>(),
+    let mut fields = match item.data {
+        syn::Data::Struct(ref body) => body.fields.iter().filter(|field| {
+            if let Type::Path(TypePath {
+                path: Path { segments, .. },
+                ..
+            }) = &field.ty
+            {
+                let ident = &segments
+                    .last()
+                    .expect("Expected path to have at least one segment")
+                    .ident;
+                ident != "PhantomData"
+            } else {
+                true
+            }
+        }),
         _ => panic!("#[derive({})] can only be used on structs", trait_name),
     };
 
-    let target_field = match fields.len() {
-        1 => fields[0],
-        _ => {
-            // Look for attribute
-            let mut targets = Vec::new();
-            for field in fields.iter() {
-                if let Some(_) = field.attrs.iter().find(|attr| attr.path.is_ident("deref_target")) {
-                    targets.push(field);
-                }
+    // There should either be only one, or only one that's tagged with #[deref_target]
+    let target_field = match (fields.next(), fields.next()) {
+        (Some(field), None) => field,
+        (None, _) => panic!("#[derive({})] can not be used on empty structs", trait_name),
+        (Some(f1), Some(f2)) => {
+            // We need to re-discriminate fields using #[deref_target]
+            let mut targets_fields =
+                std::array::IntoIter::new([f1, f2])
+                    .chain(fields)
+                    .filter(|field| {
+                        field
+                            .attrs
+                            .iter()
+                            .any(|attr| attr.path.is_ident("deref_target"))
+                    });
+            match (targets_fields.next(), targets_fields.next()) {
+                (Some(target), None) => target,
+                (None, _) => panic!(
+                    "#[derive({})]: since there is more than one field, \
+                        #[deref_target] is needed on a field",
+                    trait_name
+                ),
+                (Some(_), Some(_)) => panic!(
+                    "#[derive({})]: only one #[deref_target] allowed",
+                    trait_name
+                ),
             }
-            *targets.get(0).expect("#[deref_target] expected on one of the fields")
         }
     };
-
-
 
     let field_name = match target_field.ident {
         Some(ref ident) => quote!(#ident),
         None => quote!(0),
     };
 
-    match (target_field.ty.clone(), mutable) {
-        (syn::Type::Reference(syn::TypeReference { elem, .. }), _) => (*elem, quote!(self.#field_name)),
+    match (&target_field.ty, mutable) {
+        (syn::Type::Reference(syn::TypeReference { elem, .. }), _) => {
+            (&**elem, quote!(self.#field_name))
+        }
         (x, true) => (x, quote!(&mut self.#field_name)),
         (x, false) => (x, quote!(&self.#field_name)),
     }
